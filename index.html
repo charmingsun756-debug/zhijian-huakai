@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>指尖花开</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:#111013;color:#f3eef0;
+    font-family:-apple-system,"PingFang SC","Hiragino Sans GB",sans-serif;
+    overflow:hidden;-webkit-user-select:none;user-select:none;
+  }
+  #stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(120% 90% at 50% 40%, #16141a 0%, #0e0d10 78%)}
+  #flower{max-width:96vw;max-height:92vh;object-fit:contain;border-radius:6px;
+    box-shadow:0 24px 90px rgba(0,0,0,.6);background:#131114}
+  #cam{position:fixed;left:-9999px;top:0;width:160px;height:120px}
+
+  /* 摄像头预览小窗（右下角，可点击隐藏） */
+  #preview{position:fixed;right:14px;bottom:14px;width:192px;height:144px;border-radius:10px;
+    border:1px solid rgba(255,255,255,.14);opacity:.88;box-shadow:0 6px 24px rgba(0,0,0,.45);
+    cursor:pointer;z-index:30}
+  #preview.hide{display:none}
+
+  /* 顶栏 */
+  #topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:flex-start;
+    justify-content:space-between;padding:18px 22px;pointer-events:none;z-index:20}
+  .brand h1{font-size:17px;font-weight:600;letter-spacing:.35em;color:#f3eef0}
+  .brand p{margin-top:6px;font-size:12px;letter-spacing:.12em;color:#a99fa6}
+  #ringWrap{display:flex;align-items:center;gap:10px;pointer-events:none}
+  #ringWrap svg{transform:rotate(-90deg)}
+  #ringBg{stroke:rgba(255,255,255,.12)}
+  #ringFg{stroke:#eaa9bd;transition:stroke .3s}
+  #ringPct{font-size:12px;color:#c9bec6;min-width:34px;text-align:left}
+
+  /* 状态条 */
+  #chip{position:fixed;left:22px;bottom:20px;display:flex;align-items:center;gap:9px;
+    padding:9px 16px;border-radius:999px;background:rgba(27,25,29,.72);
+    border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(8px);font-size:13px;
+    color:#d9cfd6;z-index:20}
+  #chipDot{width:8px;height:8px;border-radius:50%;background:#8d8791;transition:background .3s}
+  #chipRatio{color:#8d8791;font-size:11px;margin-left:4px}
+
+  /* 帮助按钮与抽屉 */
+  #helpBtn{position:fixed;right:14px;bottom:170px;z-index:31;background:rgba(27,25,29,.72);
+    color:#d9cfd6;border:1px solid rgba(255,255,255,.14);border-radius:999px;
+    padding:7px 14px;font-size:12px;cursor:pointer;backdrop-filter:blur(8px)}
+  #help{position:fixed;right:14px;bottom:206px;width:300px;z-index:32;background:rgba(27,25,29,.96);
+    border:1px solid rgba(255,255,255,.14);border-radius:14px;padding:20px 22px;
+    box-shadow:0 14px 44px rgba(0,0,0,.5);font-size:13px;line-height:1.75;color:#d9cfd6}
+  #help.hide{display:none}
+  #help h2{font-size:14px;margin-bottom:10px;letter-spacing:.2em;color:#eaa9bd}
+  #help b{color:#f3eef0;font-weight:600}
+  #help ul{list-style:none;margin:6px 0 12px}
+  #help li{padding-left:1.2em;position:relative}
+  #help li::before{content:"·";position:absolute;left:.2em;color:#eaa9bd}
+  #help .fine{font-size:11px;color:#8d8791;line-height:1.6;margin-top:8px}
+  #recal{margin-top:10px;width:100%;background:none;border:1px solid rgba(255,255,255,.18);
+    color:#d9cfd6;border-radius:8px;padding:7px 0;font-size:12px;cursor:pointer}
+  #recal:hover{border-color:#eaa9bd;color:#eaa9bd}
+
+  /* 错误横幅 */
+  #banner{position:fixed;top:16px;left:50%;transform:translateX(-50%);max-width:min(560px,92vw);
+    background:rgba(179,86,110,.92);color:#fff;border-radius:12px;padding:11px 18px;
+    font-size:13px;line-height:1.6;z-index:60;display:flex;align-items:center;gap:14px;
+    box-shadow:0 10px 34px rgba(0,0,0,.4)}
+  #banner.hide{display:none}
+  #banner button{background:rgba(255,255,255,.18);color:#fff;border:0;border-radius:8px;
+    padding:6px 14px;font-size:12px;cursor:pointer;white-space:nowrap}
+
+  /* 开场遮罩 */
+  #startOverlay{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
+    background:rgba(10,8,10,.72);backdrop-filter:blur(7px);transition:opacity .6s}
+  #startOverlay.gone{opacity:0;pointer-events:none}
+  .card{width:min(430px,90vw);background:#1b191d;border:1px solid rgba(255,255,255,.12);
+    border-radius:18px;padding:38px 40px;text-align:center;box-shadow:0 30px 90px rgba(0,0,0,.55)}
+  .card .em{font-size:34px}
+  .card h1{font-size:24px;font-weight:600;letter-spacing:.4em;margin:10px 0 6px;text-indent:.4em}
+  .card .sub{font-size:13px;color:#a99fa6;letter-spacing:.08em;margin-bottom:22px}
+  .steps{text-align:left;font-size:13px;line-height:2;color:#c9bec6;margin-bottom:24px}
+  .steps b{color:#eaa9bd;font-weight:600;margin-right:6px}
+  #startBtn{background:#eaa9bd;color:#2b141c;font-weight:600;border:0;border-radius:999px;
+    padding:13px 34px;font-size:15px;cursor:pointer;letter-spacing:.06em}
+  #startBtn:disabled{opacity:.55;cursor:default}
+  .privacy{margin-top:16px;font-size:11px;color:#8d8791;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div id="stage"><video id="flower" playsinline muted preload="auto" src="flower.mp4"></video></div>
+<video id="cam" playsinline muted></video>
+<canvas id="preview" width="192" height="144" title="点击隐藏/显示摄像头预览"></canvas>
+
+<header id="topbar">
+  <div class="brand"><h1>指尖花开</h1><p>分开绽放 · 捏合含苞</p></div>
+  <div id="ringWrap">
+    <svg width="52" height="52" viewBox="0 0 52 52">
+      <circle id="ringBg" cx="26" cy="26" r="22" fill="none" stroke-width="3"/>
+      <circle id="ringFg" cx="26" cy="26" r="22" fill="none" stroke-width="3"
+              stroke-linecap="round" stroke-dasharray="138.23" stroke-dashoffset="138.23"/>
+    </svg>
+    <span id="ringPct">0%</span>
+  </div>
+</header>
+
+<div id="chip"><span id="chipDot"></span><span id="chipText">正在加载手势引擎…</span><span id="chipRatio"></span></div>
+<button id="helpBtn">使用帮助</button>
+<aside id="help" class="hide">
+  <h2>怎么控制</h2>
+  <ul>
+    <li><b>分开拇指与食指</b> → 花慢慢盛开</li>
+    <li><b>捏紧拇指与食指</b> → 花收回花苞</li>
+    <li>停在半开的位置 → 花停在半开</li>
+  </ul>
+  <ul>
+    <li>单手即可，手距摄像头约 30–60 厘米</li>
+    <li>光线充足处更稳定；手移出画面后花开程度保持不变</li>
+    <li>摄像头未开启时：也可以<b>按 ←/→ 方向键</b>或<b>左右拖动画面</b>来控制</li>
+  </ul>
+  <div class="fine">画面仅在本机浏览器内实时分析，不做任何上传或存储。<br>
+  若幅度大小不合适，可点击下方按钮重新校准：先捏到最紧，再张到最大，各停 1 秒。</div>
+  <button id="recal">重新校准幅度</button>
+</aside>
+
+<div id="banner" class="hide"><span id="bannerText"></span><button id="bannerBtn">重试</button></div>
+
+<div id="startOverlay">
+  <div class="card">
+    <div class="em">✿</div>
+    <h1>指尖花开</h1>
+    <div class="sub">用拇指与食指的距离，掌控一朵芍药的开合</div>
+    <div class="steps">
+      <div><b>1</b>点击下方按钮，并允许浏览器使用摄像头</div>
+      <div><b>2</b>举起一只手，拇指与食指对着镜头</div>
+      <div><b>3</b>两指张开 = 盛开，捏紧 = 花苞，半开也可以停住</div>
+    </div>
+    <button id="startBtn" disabled>手势引擎加载中…</button>
+    <div class="privacy">摄像头画面仅在本机浏览器内实时处理，不会上传、不会保存。<br>建议使用 Chrome 浏览器；画面完全离线运行。</div>
+  </div>
+</div>
+
+<script type="module">
+const $ = id => document.getElementById(id);
+const flower = $('flower'), cam = $('cam'), preview = $('preview'), pctx = preview.getContext('2d');
+
+/* ---------- 可调参数 ---------- */
+const CLOSE_RATIO = 0.28;   // 拇指-食指“捏紧”时的距离/手掌基准（默认标定）
+const OPEN_RATIO  = 1.05;   // “张开”时的距离/手掌基准
+const SMOOTH_HAND = 0.40;   // 手势→目标的平滑系数（越小越稳，越大跟手越快）
+const SMOOTH_VAL  = 0.22;   // 目标→画面的缓冲系数（产生“慢慢开”的柔顺感）
+const LOST_HOLD   = 30;     // 手丢失约 1 秒内保持当前进度不变
+
+/* ---------- 状态 ---------- */
+const APP = window.__APP = {
+  stage:'boot', engineReady:false, camReady:false, val:0, target:0,
+  ratio:null, tracking:false, error:null, duration:0
+};
+const cal = { lo:Infinity, hi:-Infinity };          // 自动校准的实测范围
+let handLandmarker = null, lastT = 0, lostFrames = 99;
+let lastLandmarks = null, seeking = false;
+
+/* ---------- 小工具 ---------- */
+const clamp01 = v => Math.min(1, Math.max(0, v));
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+function showBanner(msg, retry){ $('bannerText').textContent = msg; $('banner').classList.remove('hide');
+  $('bannerBtn').style.display = retry ? '' : 'none'; }
+const hideBanner = () => $('banner').classList.add('hide');
+
+/* ---------- 引擎加载（全部本地文件） ---------- */
+async function initEngine(){
+  APP.stage='engine'; $('chipText').textContent='正在加载手势引擎…';
+  $('startBtn').disabled = true; $('startBtn').textContent='手势引擎加载中…';
+  try{
+    const vision = await import('./mediapipe/vision_bundle.mjs');
+    const fileset = await vision.FilesetResolver.forVisionTasks('./mediapipe/wasm');
+    const opts = d => ({
+      baseOptions:{ modelAssetPath:'./mediapipe/hand_landmarker.task', delegate:d },
+      runningMode:'VIDEO', numHands:1
+    });
+    try{ handLandmarker = await vision.HandLandmarker.createFromOptions(fileset, opts('GPU')); }
+    catch(e){ handLandmarker = await vision.HandLandmarker.createFromOptions(fileset, opts('CPU')); }
+    APP.engineReady = true; APP.stage='model'; APP.error=null; hideBanner();
+    $('startBtn').disabled = false; $('startBtn').textContent = '开启摄像头，开始';
+  }catch(e){
+    APP.error = String(e); APP.stage='engine-error';
+    const viaFile = location.protocol === 'file:';
+    showBanner(viaFile
+      ? '你是直接双击打开了 index.html，浏览器会阻止手势引擎加载。请关闭本页，改为双击文件夹里的「启动指尖花开.command」。'
+      : '手势引擎加载失败（' + String(e).slice(0, 90) + '）。请点「重试」，或重新双击「启动指尖花开.command」。', true);
+    $('bannerBtn').onclick = initEngine;
+    $('startBtn').textContent = '重试加载引擎';
+  }
+}
+
+/* ---------- 摄像头 ---------- */
+async function startCamera(){
+  if(!APP.engineReady) return;
+  hideBanner();
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video:{ width:{ideal:640}, height:{ideal:480}, facingMode:'user' }, audio:false });
+    cam.srcObject = stream; await cam.play();
+    APP.camReady = true; APP.stage='running'; lostFrames = 99;
+    $('startOverlay').classList.add('gone');
+  }catch(e){
+    APP.error = String(e);
+    const denied = /NotAllowed|Permission/i.test(e.name + e.message);
+    showBanner(denied
+      ? '摄像头权限被拒绝：请点击浏览器地址栏左侧的图标，把「摄像头」设为允许，然后重试。'
+      : '未能开启摄像头（' + (e.name||e.message||e) + '）。请确认电脑有摄像头且没有被其他程序占用，然后重试。',
+      true);
+    $('bannerBtn').onclick = startCamera;
+    $('startBtn').textContent = '重新尝试开启摄像头';
+  }
+}
+$('startBtn').onclick = startCamera;
+$('helpBtn').onclick = () => $('help').classList.toggle('hide');
+preview.onclick = () => preview.classList.toggle('hide');
+$('recal').onclick = () => { cal.lo = Infinity; cal.hi = -Infinity;
+  $('recal').textContent = '已重置，请捏紧→张开各停 1 秒'; setTimeout(()=> $('recal').textContent='重新校准幅度', 2500); };
+
+/* ---------- 手势计算 ---------- */
+function pinchMetrics(lm){
+  const palm = 0.6*dist(lm[0],lm[5]) + 0.4*dist(lm[5],lm[17]);   // 手掌尺寸（随远近缩放）
+  const d = dist(lm[4], lm[8]);                                   // 拇指尖-食指尖
+  return { ratio: d/Math.max(palm,1e-4) };
+}
+function ratioToOpen(r){
+  let lo = CLOSE_RATIO, hi = OPEN_RATIO;
+  const span = cal.hi - cal.lo;
+  if (isFinite(span) && span > 0.2){ lo = cal.lo; hi = cal.hi; }  // 实测范围足够时改用自动标定
+  return clamp01((r - lo) / (hi - lo));
+}
+function runDetect(ts){
+  let res; try{ res = handLandmarker.detectForVideo(cam, ts); }catch(e){ return; }
+  const lm = res && res.landmarks && res.landmarks[0];
+  if (lm && lm.length >= 21){
+    lostFrames = 0; lastLandmarks = lm; APP.tracking = true;
+    const m = pinchMetrics(lm); APP.ratio = m.ratio;
+    cal.lo = Math.min(cal.lo, m.ratio); cal.hi = Math.max(cal.hi, m.ratio);
+    APP.target += (ratioToOpen(m.ratio) - APP.target) * SMOOTH_HAND;
+  }else{
+    lostFrames++;                                    // 手暂时丢失：保持目标，不回退
+    if (lostFrames > LOST_HOLD) APP.tracking = false;
+  }
+}
+
+/* ---------- 视频进度 ---------- */
+flower.addEventListener('loadedmetadata', () => { APP.duration = flower.duration || 0; });
+flower.addEventListener('error', () => showBanner('视频 flower.mp4 加载失败：请确认它与本页面在同一文件夹。', false));
+flower.addEventListener('seeked', () => { seeking = false; });
+function applyToVideo(v){
+  const dur = APP.duration; if(!dur || seeking) return;
+  const t = clamp01(v) * Math.max(dur - 0.05, 0);
+  if (Math.abs(t - flower.currentTime) < Math.max(0.015, dur*0.0008)) return;
+  seeking = true;
+  try{ flower.currentTime = t; }catch(e){ seeking = false; }
+}
+
+/* ---------- 鼠标 / 键盘备用控制 ---------- */
+let dragVal = null;
+$('stage').addEventListener('pointerdown', e => { if(!APP.camReady){ dragVal = { x:e.clientX, v:APP.target }; } });
+window.addEventListener('pointermove', e => {
+  if(dragVal){ APP.target = clamp01(dragVal.v + (e.clientX - dragVal.x)/(innerWidth*0.55)); } });
+window.addEventListener('pointerup', () => dragVal = null);
+window.addEventListener('keydown', e => {
+  if(e.key === 'ArrowRight') APP.target = clamp01(APP.target + 0.05);
+  if(e.key === 'ArrowLeft')  APP.target = clamp01(APP.target - 0.05);
+});
+
+/* ---------- UI ---------- */
+const RING = 138.23;
+function setStateUI(text, color){
+  $('chipText').textContent = text; $('chipDot').style.background = color;
+}
+function updateUI(){
+  $('ringFg').style.strokeDashoffset = RING * (1 - APP.val);
+  $('ringFg').style.stroke = APP.tracking ? '#eaa9bd' : 'rgba(234,169,189,.45)';
+  $('ringPct').textContent = Math.round(APP.val*100) + '%';
+  $('chipRatio').textContent = APP.ratio != null ? ('距离 ' + APP.ratio.toFixed(2)) : '';
+  if (APP.error){ return; }
+  if (!APP.engineReady)      setStateUI('正在加载手势引擎…', '#8d8791');
+  else if (!APP.camReady)    setStateUI('摄像头未开启', '#c9a227');
+  else if (APP.tracking){
+    const v = APP.val;
+    setStateUI(v<0.07 ? '含苞 ✿' : v<0.30 ? '苏醒' : v<0.60 ? '半开' : v<0.92 ? '绽放中' : '盛开 ✿', '#eaa9bd');
+  }else setStateUI('举起手，拇指食指对准镜头', '#8d8791');
+}
+
+/* ---------- 预览小窗 ---------- */
+function drawPreview(){
+  if (preview.classList.contains('hide') || cam.readyState < 2) return;
+  const w = preview.width, h = preview.height;
+  pctx.save(); pctx.clearRect(0,0,w,h);
+  pctx.translate(w,0); pctx.scale(-1,1);                    // 镜像，符合直觉
+  pctx.drawImage(cam, 0, 0, w, h);
+  pctx.restore();
+  if (lastLandmarks){
+    const P = i => ({ x:(1-lastLandmarks[i].x)*w, y:lastLandmarks[i].y*h });
+    const a = P(4), b = P(8);
+    pctx.strokeStyle = 'rgba(234,169,189,.9)'; pctx.lineWidth = 1.5;
+    pctx.beginPath(); pctx.moveTo(a.x,a.y); pctx.lineTo(b.x,b.y); pctx.stroke();
+    for (const p of [a,b]){
+      pctx.fillStyle = '#eaa9bd'; pctx.beginPath(); pctx.arc(p.x,p.y,4,0,7); pctx.fill();
+      pctx.strokeStyle = 'rgba(255,255,255,.8)'; pctx.lineWidth = 1; pctx.stroke();
+    }
+  }
+  pctx.fillStyle = 'rgba(255,255,255,.75)';                 // 底部进度条
+  pctx.fillRect(0, h-3, w*APP.val, 3);
+}
+
+/* ---------- 主循环 ---------- */
+function loop(now){
+  requestAnimationFrame(loop);
+  if (APP.camReady && handLandmarker && now - lastT >= 33 && cam.readyState >= 2){
+    lastT = now; runDetect(now);
+  }
+  APP.val += (APP.target - APP.val) * SMOOTH_VAL;
+  if (Math.abs(APP.target - APP.val) < 0.0015) APP.val = APP.target;
+  applyToVideo(APP.val);
+  updateUI(); drawPreview();
+}
+
+/* ---------- 启动 ---------- */
+flower.addEventListener('loadeddata', () => { try{ flower.currentTime = 0.001; }catch(e){} });
+initEngine();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
